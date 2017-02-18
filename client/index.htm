@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+    <head>
+        <title>PHP Autocomplete plugin test</title>
+
+        <script src="../../dayside/server/assets/teacss/teacss.js"></script>
+        
+        <script src="../../dayside/server/assets/teacss/teacss-ui.js"></script>
+        <link href="../../dayside/server/assets/teacss/teacss-ui.css" rel="stylesheet" type="text/css">
+            
+        <script src="../../dayside/client/dayside.js"></script>
+        <link href="../../dayside/client/dayside.css" rel="stylesheet" type="text/css">
+        
+        <script src="php_autocomplete.js"></script>
+        <script>
+            dayside({
+                root: teacss.path.absolute("..")
+            });
+            dayside.plugins.php_autocomplete();
+        </script>
+    </head>
+    <body>
+    </body>
+</html>

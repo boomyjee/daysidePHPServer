@@ -1,0 +1,13 @@
+{
+    "autoload": {
+        "psr-0": {
+            "Dayside": "app/src"
+        }
+    },    
+    "minimum-stability": "dev",
+    "require": {
+        "squizlabs/php_codesniffer": "3.0.0RC3",
+        "felixfbecker/language-server": "^4.3",
+        "cboden/ratchet": "^0.3.6"
+    }
+}
