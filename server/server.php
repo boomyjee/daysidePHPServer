@@ -52,12 +52,14 @@ class AutocompleteServer implements MessageComponentInterface {
     public $languageServer;
     public $reader;
     public $timeoutStamp;
+    public $params;
 
-    const TIMEOUT = 30;
+    const TIMEOUT = 10; // timeout to disconnect if no connections is up
 
-    public function __construct() {
+    public function __construct($params) {
         $this->clients = [];
         $this->timeoutStamp = time();
+        $this->params = $params;
     }
 
     public function checkTimeout() {
@@ -84,7 +86,7 @@ class AutocompleteServer implements MessageComponentInterface {
     }
 
     public function auth($from) {
-        global $params;
+        $params = $this->params;
         $authInclude = @$params['authInclude'] ? : __DIR__."/../../dayside/server/api.php";
         $authFunction = @$params['authFunction'] ? : array('\FileApi','remote_auth');
         
@@ -93,7 +95,6 @@ class AutocompleteServer implements MessageComponentInterface {
     }    
 
     public function onMessage(ConnectionInterface $from, $msg) {
-        //echo $msg."\n";
         $this->reader->message(Message::parse($msg));
     }
 
@@ -113,14 +114,13 @@ class AutocompleteServer implements MessageComponentInterface {
     }
 }
 
-global $params;
 $params = @json_decode($_SERVER['argv'][2],true)?:array();
 $port = (int)@$params['port']?:8000;
 
 $server = IoServer::factory(
     new HttpServer(
         new WsServer(
-            $autocompleteServer = new AutocompleteServer()
+            $autocompleteServer = new AutocompleteServer($params)
         )
     ),
     $port
