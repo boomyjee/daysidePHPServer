@@ -54,7 +54,7 @@ class AutocompleteServer implements MessageComponentInterface {
     public $timeoutStamp;
     public $params;
 
-    const TIMEOUT = 10; // timeout to disconnect if no connections is up
+    const TIMEOUT = 60*5; // timeout to disconnect if no connections is up
 
     public function __construct($params) {
         $this->clients = [];
