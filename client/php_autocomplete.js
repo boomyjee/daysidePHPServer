@@ -14,6 +14,83 @@ function convertRange(range) {
     }
 }
 
+dayside.ready(function(){
+    dayside.editor.bind("editorOptions",function(b,e){
+        e.options.overrideOptions = e.options.overrideOptions || {};
+        e.options.overrideOptions.textModelResolverService = {
+            createModelReference: function(uri) {
+                return new monaco.Promise(function(complete){
+                    require(['vs/base/common/lifecycle'],function(lc){
+                        if (uri.scheme!="dayside") console.debug('Wrong uri',uri);
+                        var file = dayside.options.root + uri.path.substring(1);
+
+                        var tab = dayside.editor.openFile(file);
+                        if (tab.editor) {
+                            ready();
+                        } else {
+                            tab.bind("editorCreated",ready);
+                        }
+
+                        function ready() {
+                            complete(new lc.ImmortalReference({
+                                textEditorModel: tab.editor.getModel()
+                            }));
+                        }
+                    });
+                });
+            },
+            registerTextModelContentProvider: function (scheme, provider) {
+                return {
+                    dispose: function () { /* no op */ }
+                };
+            }                    
+        },
+        e.options.overrideOptions.editorService = {
+            openEditor: function (e) {
+                return new monaco.Promise(function(complete,error){
+                    var uri = e.resource;
+                    if (uri.scheme!="dayside") console.debug('Wrong uri',uri);
+                    var url = dayside.options.root + uri.path.substring(1);
+
+                    var selection = e.options.selection;
+                    var tab = dayside.editor.selectFile(url);
+
+                    function positionCursor() {
+                        var editor = tab.editor;
+                        if (selection) {
+                            if (typeof selection.endLineNumber === 'number' && typeof selection.endColumn === 'number') {
+                                editor.setSelection(selection);
+                                editor.revealRangeInCenter(selection);
+                            } else {
+                                var pos = {
+                                    lineNumber: selection.startLineNumber,
+                                    column: selection.startColumn
+                                };
+                                editor.setPosition(pos);
+                                editor.revealPositionInCenter(pos);                            
+                            }
+                        }
+
+                        if (!editor.getControl) {
+                            editor.getControl = function () {
+                                return this;
+                            }
+                        }
+                        tab.saveState();
+                        complete(editor);
+                    }
+                    
+                    if (tab.editor) {
+                        positionCursor();
+                    } else {
+                        tab.bind("editorCreated",positionCursor);
+                    }
+                });
+            }
+        }
+    });
+});
+
 dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
     init: function (o) {
         var me = this;
@@ -43,90 +120,8 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
             );
             e.tabs.addTab(configTab);
         });    
-
-        dayside.ready(function(){
-            dayside.editor.bind("editorOptions",function(b,e){
-                e.options.overrideOptions = e.options.overrideOptions || {};
-                e.options.overrideOptions.textModelResolverService = {
-	                createModelReference: function(uri) {
-                        return new monaco.Promise(function(complete){
-                            require(['vs/base/common/lifecycle'],function(lc){
-                                if (uri.scheme=="dayside") {
-                                    var file =  dayside.options.root + uri.path.substring(1);
-                                } else {
-                                    var file = me.getUrl(uri.toString());
-                                }
-
-                                var tab = dayside.editor.openFile(file);
-                                if (tab.editor) {
-                                    ready();
-                                } else {
-                                    tab.bind("editorCreated",ready);
-                                }
-
-                                function ready() {
-                                    complete(new lc.ImmortalReference({
-                                        textEditorModel: tab.editor.getModel()
-                                    }));
-                                }
-                            });
-                        });
-                    },
-                    registerTextModelContentProvider: function (scheme, provider) {
-                        return {
-                            dispose: function () { /* no op */ }
-                        };
-                    }                    
-                },
-                e.options.overrideOptions.editorService = {
-                    openEditor: function (e) {
-                        return new monaco.Promise(function(complete,error){
-                            var uri = e.resource;
-                            if (uri.scheme && uri.scheme=='dayside') {
-                                var url =  dayside.options.root + uri.path.substring(1);
-                            } else {
-                                var url = me.getUrl(uri.toString());
-                            }
-
-                            var selection = e.options.selection;
-                            var tab = dayside.editor.selectFile(url);
-
-                            function positionCursor() {
-                                var editor = tab.editor;
-                                if (selection) {
-                                    if (typeof selection.endLineNumber === 'number' && typeof selection.endColumn === 'number') {
-                                        editor.setSelection(selection);
-                                        editor.revealRangeInCenter(selection);
-                                    } else {
-                                        var pos = {
-                                            lineNumber: selection.startLineNumber,
-                                            column: selection.startColumn
-                                        };
-                                        editor.setPosition(pos);
-                                        editor.revealPositionInCenter(pos);                            
-                                    }
-                                }
-
-                                if (!editor.getControl) {
-                                    editor.getControl = function () {
-                                        return this;
-                                    }
-                                }
-                                tab.saveState();
-                                complete(editor);
-                            }
-                            
-                            if (tab.editor) {
-                                positionCursor();
-                            } else {
-                                tab.bind("editorCreated",positionCursor);
-                            }
-                        });
-                    }
-                }
-            });
-        });
     },
+
 
     disconnect: function () {
         this.socket.close();
@@ -263,12 +258,12 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
                                     }
                                 },function(msg){
                                     if (msg.result.range) {
-                                        msg.result.range = convertRange(msg.result.range);
-                                    } else {
-                                        msg.result.forEach(function(one){
-                                            one.range = convertRange(one.range);
-                                        });
+                                        msg.result = [msg.result];
                                     }
+                                    msg.result.forEach(function(one){
+                                        one.range = convertRange(one.range);
+                                        one.uri = me.getDaysideUri(one.uri);
+                                    });
                                     complete(msg.result);
                                 });                        
                             });
@@ -313,7 +308,7 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
                                 },function(msg){
                                     msg.result.forEach(function(ref){
                                         ref.range = convertRange(ref.range);
-                                        ref.uri = monaco.Uri.parse(ref.uri.replace("file://"+me.root,"dayside://web"));
+                                        ref.uri = me.getDaysideUri(ref.uri);
                                     });                                    
                                     complete(msg.result);
                                 });
@@ -377,11 +372,8 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
     getUri: function (url) {
         return "file://"+url.replace(this.rootUrl,this.root);
     },
-    getUrl: function (uri) {
-        if (/^file:\/\//.test(uri)) {
-            return uri.substring("file://".length).replace(this.root,this.rootUrl);
-        }
-        return uri;        
+    getDaysideUri: function (uri) {
+        return monaco.Uri.parse(uri.replace("file://"+this.root,"dayside://root"));
     },
     sendCallbacks: {},
     send: function (method,params,callback) {
