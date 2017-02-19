@@ -47,12 +47,48 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
         dayside.ready(function(){
             dayside.editor.bind("editorOptions",function(b,e){
                 e.options.overrideOptions = e.options.overrideOptions || {};
+                e.options.overrideOptions.textModelResolverService = {
+	                createModelReference: function(uri) {
+                        return new monaco.Promise(function(complete){
+                            require(['vs/base/common/lifecycle'],function(lc){
+                                if (uri.scheme=="dayside") {
+                                    var file =  dayside.options.root + uri.path.substring(1);
+                                } else {
+                                    var file = me.getUrl(uri.toString());
+                                }
+
+                                var tab = dayside.editor.openFile(file);
+                                if (tab.editor) {
+                                    ready();
+                                } else {
+                                    tab.bind("editorCreated",ready);
+                                }
+
+                                function ready() {
+                                    complete(new lc.ImmortalReference({
+                                        textEditorModel: tab.editor.getModel()
+                                    }));
+                                }
+                            });
+                        });
+                    },
+                    registerTextModelContentProvider: function (scheme, provider) {
+                        return {
+                            dispose: function () { /* no op */ }
+                        };
+                    }                    
+                },
                 e.options.overrideOptions.editorService = {
                     openEditor: function (e) {
                         return new monaco.Promise(function(complete,error){
-                            var url = me.getUrl(e.resource);
-                            var selection = e.options.selection;
+                            var uri = e.resource;
+                            if (uri.scheme && uri.scheme=='dayside') {
+                                var url =  dayside.options.root + uri.path.substring(1);
+                            } else {
+                                var url = me.getUrl(uri.toString());
+                            }
 
+                            var selection = e.options.selection;
                             var tab = dayside.editor.selectFile(url);
 
                             function positionCursor() {
@@ -277,6 +313,7 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
                                 },function(msg){
                                     msg.result.forEach(function(ref){
                                         ref.range = convertRange(ref.range);
+                                        ref.uri = monaco.Uri.parse(ref.uri.replace("file://"+me.root,"dayside://web"));
                                     });                                    
                                     complete(msg.result);
                                 });
@@ -341,7 +378,10 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
         return "file://"+url.replace(this.rootUrl,this.root);
     },
     getUrl: function (uri) {
-        return uri.replace(/^file:\/\//,"").replace(this.root,this.rootUrl);
+        if (/^file:\/\//.test(uri)) {
+            return uri.substring("file://".length).replace(this.root,this.rootUrl);
+        }
+        return uri;        
     },
     sendCallbacks: {},
     send: function (method,params,callback) {
