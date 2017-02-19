@@ -24,18 +24,13 @@ dayside.ready(function(){
                         if (uri.scheme!="dayside") console.debug('Wrong uri',uri);
                         var file = dayside.options.root + uri.path.substring(1);
 
-                        var tab = dayside.editor.openFile(file);
-                        if (tab.editor) {
-                            ready();
-                        } else {
-                            tab.bind("editorCreated",ready);
-                        }
-
-                        function ready() {
+                        FileApi.file(file,function (answer){
+                            var text = answer.error || answer.data;
+                            var model = monaco.editor.createModel(text,ui.codeTab.languageFromFilename(file));
                             complete(new lc.ImmortalReference({
-                                textEditorModel: tab.editor.getModel()
-                            }));
-                        }
+                                textEditorModel: model
+                            }));                            
+                        });
                     });
                 });
             },
