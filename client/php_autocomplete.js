@@ -17,7 +17,10 @@ function convertRange(range) {
 dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
     init: function (o) {
         var me = this;
-        this.options = $.extend({port:8000},o);
+        this.options = $.extend({
+            port: 8000,
+            wss_port: 8443
+        },o);
         this.Class.instance = this;
 
         dayside.core.bind("configDefaults",function(b,e){
@@ -111,7 +114,15 @@ dayside.php_autocomplete = dayside.plugins.php_autocomplete = $.Class.extend({
 
     createSocket: function() {
         var me = this;
-        var socket = this.socket = new WebSocket("ws://" + window.location.hostname + ":"+me.options.port);
+        var url;
+
+        if (window.location.protocol === 'https:') {
+            url = "wss://" + window.location.hostname + ":" + me.options.wss_port;
+        } else {
+            url = "ws://" + window.location.hostname + ":" + me.options.port;
+        }
+
+        var socket = this.socket = new WebSocket(url);
         socket.onopen = function () { 
             console.log("Connection OK");
             me.connected = true;
