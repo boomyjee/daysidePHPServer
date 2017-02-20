@@ -20,7 +20,7 @@ dayside.ready(function(){
         e.options.overrideOptions.textModelResolverService = {
             createModelReference: function(uri) {
                 return new monaco.Promise(function(complete){
-                    require(['vs/base/common/lifecycle'],function(lc){
+                    monaco_require(['vs/base/common/lifecycle'],function(lc){
                         if (uri.scheme!="dayside") console.debug('Wrong uri',uri);
                         var file = dayside.options.root + uri.path.substring(1);
 
